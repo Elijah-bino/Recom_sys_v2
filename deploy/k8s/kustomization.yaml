@@ -1,0 +1,10 @@
+# kubectl apply -k deploy/k8s
+# Create secrets first (see secret-*.example.yaml) or omit optional keys.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: recomsys
+resources:
+  - namespace.yaml
+  - pvc.yaml
+  - deployment.yaml
+  - service.yaml

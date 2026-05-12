@@ -1,15 +1,21 @@
 from __future__ import annotations
 
+import json
 import os
+import secrets
+import sqlite3
+from contextlib import asynccontextmanager
+from datetime import datetime, timezone
 from functools import lru_cache
 from pathlib import Path
 from typing import Any, Literal
 
 import numpy as np
 import pandas as pd
-from fastapi import FastAPI, Query
+from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from jose import JWTError
 from pydantic import BaseModel, Field
 
 from recommender.data import Catalog, load_catalog, resolve_seed_items
@@ -17,10 +23,16 @@ from recommender.model import Recommender
 from recommender.recency_rank import apply_recency_rerank, recency_pool_k
 from recommender.tmdb import TMDBTrailerResolver
 from recommender.youtube import YouTubeTrailerResolver
+from server.auth import auth_config, create_token, decode_token, hash_password, verify_password
+from server.db import Db, create_user, fetch_run_by_slug, get_user_by_email, get_user_by_id, init_db, insert_rec_run, list_liked_imdb
 
 
 def _env(name: str, default: str = "") -> str:
     return (os.environ.get(name, default) or default).strip()
+
+
+REPO_ROOT = Path(__file__).resolve().parent
+DB_PATH = Path(os.environ.get("DB_PATH", str(REPO_ROOT / ".data" / "recomsys.db")))
 
 
 class Filters(BaseModel):
@@ -47,6 +59,26 @@ class LikedReq(BaseModel):
     top_k: int = Field(5, ge=1, le=50)
     filters: Filters | None = None
     prefer_recent: bool = True
+
+
+class RegisterBody(BaseModel):
+    email: str = Field(..., min_length=5, max_length=200)
+    password: str = Field(..., min_length=6, max_length=200)
+
+
+class LoginBody(BaseModel):
+    email: str = Field(..., min_length=5, max_length=200)
+    password: str = Field(..., min_length=6, max_length=200)
+
+
+class AuthResponse(BaseModel):
+    token: str
+    email: str
+
+
+class MeResponse(BaseModel):
+    email: str
+    liked_imdb: list[str] = Field(default_factory=list)
 
 
 def _apply_filters(df, f: Filters | None):
@@ -160,7 +192,76 @@ def _yt() -> YouTubeTrailerResolver:
     return YouTubeTrailerResolver()
 
 
-app = FastAPI(title="RecomSys API", version="0.1.0")
+def _try_user(authorization: str | None = Header(default=None)) -> tuple[int, str] | None:
+    if not authorization or not authorization.lower().startswith("bearer "):
+        return None
+    token = authorization.split(" ", 1)[1].strip()
+    if not token:
+        return None
+    try:
+        return decode_token(token)
+    except JWTError:
+        return None
+
+
+def _require_user(authorization: str | None = Header(default=None)) -> tuple[int, str]:
+    u = _try_user(authorization)
+    if u is None:
+        raise HTTPException(status_code=401, detail="Missing or invalid token")
+    return u
+
+
+def _filters_dict(f: Filters | None) -> dict[str, Any] | None:
+    if f is None:
+        return None
+    return json.loads(f.model_dump_json())
+
+
+def _new_share_slug() -> str:
+    return secrets.token_urlsafe(12)
+
+
+def _save_share(
+    conn: sqlite3.Connection,
+    *,
+    user_id: int | None,
+    mode: str,
+    query: str | None,
+    filters: Filters | None,
+    results: list[dict[str, Any]],
+) -> str:
+    slug = _new_share_slug()
+    ts = datetime.now(timezone.utc).isoformat()
+    for _ in range(5):
+        try:
+            insert_rec_run(
+                conn,
+                user_id=user_id,
+                mode=mode,
+                query=query,
+                filters=_filters_dict(filters),
+                results=results,
+                share_slug=slug,
+                created_at=ts,
+            )
+            return slug
+        except sqlite3.IntegrityError:
+            slug = _new_share_slug()
+    raise HTTPException(status_code=500, detail="Could not allocate share slug")
+
+
+@asynccontextmanager
+async def _lifespan(app: FastAPI):
+    db = Db(DB_PATH)
+    conn = db.connect()
+    conn.execute("PRAGMA foreign_keys = ON")
+    init_db(conn)
+    app.state.db_conn = conn
+    yield
+    conn.close()
+
+
+app = FastAPI(title="RecomSys API", version="0.1.0", lifespan=_lifespan)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -198,7 +299,56 @@ def health() -> dict[str, Any]:
         "youtube_api_configured": yt.enabled(),
         "youtube_quota_exceeded": bool(getattr(yt, "quota_exceeded", False)),
         "ui_mounted": _frontend_dir.exists(),
+        "db_path": str(DB_PATH),
     }
+
+
+@app.post("/auth/register", response_model=AuthResponse)
+def auth_register(body: RegisterBody, request: Request) -> AuthResponse:
+    conn = request.app.state.db_conn
+    row = get_user_by_email(conn, body.email)
+    if row is not None:
+        raise HTTPException(status_code=409, detail="Email already registered")
+    ph = hash_password(body.password)
+    ts = datetime.now(timezone.utc).isoformat()
+    try:
+        uid = create_user(conn, email=body.email, password_hash=ph, created_at=ts)
+    except sqlite3.IntegrityError:
+        raise HTTPException(status_code=409, detail="Email already registered") from None
+    tok = create_token(user_id=uid, email=body.email.strip())
+    return AuthResponse(token=tok, email=body.email.strip())
+
+
+@app.post("/auth/login", response_model=AuthResponse)
+def auth_login(body: LoginBody, request: Request) -> AuthResponse:
+    conn = request.app.state.db_conn
+    row = get_user_by_email(conn, body.email)
+    if row is None or not verify_password(body.password, str(row["password_hash"])):
+        raise HTTPException(status_code=401, detail="Invalid email or password")
+    uid = int(row["id"])
+    email = str(row["email"])
+    tok = create_token(user_id=uid, email=email)
+    return AuthResponse(token=tok, email=email)
+
+
+@app.get("/me", response_model=MeResponse)
+def auth_me(request: Request, user: tuple[int, str] = Depends(_require_user)) -> MeResponse:
+    uid, email = user
+    conn = request.app.state.db_conn
+    row = get_user_by_id(conn, uid)
+    if row is None:
+        raise HTTPException(status_code=401, detail="User not found")
+    liked = list_liked_imdb(conn, uid)
+    return MeResponse(email=str(row["email"]), liked_imdb=liked)
+
+
+@app.get("/share/{slug}")
+def get_share(slug: str, request: Request) -> dict[str, Any]:
+    conn = request.app.state.db_conn
+    run = fetch_run_by_slug(conn, slug)
+    if run is None:
+        raise HTTPException(status_code=404, detail="Share not found")
+    return {"slug": slug, "rec_run_id": int(run["id"]), "results": run.get("results") or []}
 
 
 @app.get("/search")
@@ -227,7 +377,11 @@ def filter_options() -> dict[str, Any]:
 
 
 @app.post("/recommend/query")
-def recommend_query(req: QueryReq) -> dict[str, Any]:
+def recommend_query(
+    req: QueryReq,
+    request: Request,
+    user: tuple[int, str] | None = Depends(_try_user),
+) -> dict[str, Any]:
     c = _catalog()
     rec = _recommender()
     mat = _item_matrix()
@@ -263,11 +417,27 @@ def recommend_query(req: QueryReq) -> dict[str, Any]:
 
     yt = _yt()
     results = [_row_to_result(df.loc[int(i)].to_dict(), float(s), yt) for i, s in zip(picked.tolist(), scores.tolist())]
-    return {"results": results, "share_slug": None}
+    share_slug: str | None = None
+    if user is not None:
+        uid, _email = user
+        conn = request.app.state.db_conn
+        share_slug = _save_share(
+            conn,
+            user_id=uid,
+            mode="query",
+            query=req.query,
+            filters=req.filters,
+            results=results,
+        )
+    return {"results": results, "share_slug": share_slug}
 
 
 @app.post("/recommend/liked")
-def recommend_liked(req: LikedReq) -> dict[str, Any]:
+def recommend_liked(
+    req: LikedReq,
+    request: Request,
+    user: tuple[int, str] | None = Depends(_try_user),
+) -> dict[str, Any]:
     c = _catalog()
     rec = _recommender()
     mat = _item_matrix()
@@ -312,5 +482,16 @@ def recommend_liked(req: LikedReq) -> dict[str, Any]:
 
     yt = _yt()
     results = [_row_to_result(df.loc[int(i)].to_dict(), float(s), yt) for i, s in zip(picked.tolist(), scores.tolist())]
-    return {"results": results, "share_slug": None}
-
+    share_slug: str | None = None
+    if user is not None:
+        uid, _email = user
+        conn = request.app.state.db_conn
+        share_slug = _save_share(
+            conn,
+            user_id=uid,
+            mode="liked",
+            query=None,
+            filters=req.filters,
+            results=results,
+        )
+    return {"results": results, "share_slug": share_slug}

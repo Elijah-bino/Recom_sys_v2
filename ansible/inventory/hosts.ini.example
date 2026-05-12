@@ -1,0 +1,3 @@
+# Copy to hosts.ini if you customize hosts.
+[control]
+localhost ansible_connection=local

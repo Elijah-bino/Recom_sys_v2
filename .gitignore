@@ -23,6 +23,7 @@ Key/
 
 # Local k8s secrets
 deploy/k8s/secret-youtube.yaml
+deploy/k8s/secret-jwt.yaml
 
 # Locust HTML reports (large, binary-ish)
 Locust_*.html

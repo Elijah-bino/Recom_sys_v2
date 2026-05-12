@@ -1,0 +1,65 @@
+---
+# Apply Kubernetes manifests using kubectl (same machine as kubeconfig).
+#
+#   cd ansible
+#   ansible-playbook playbook.yml
+#
+# Optional:
+#   ansible-playbook playbook.yml -e recomsys_image=myacr.azurecr.io/recomsys:v2
+- name: Deploy RecomSys v2 to Kubernetes
+  hosts: control
+  gather_facts: false
+  vars:
+    recomsys_namespace: recomsys
+    recomsys_manifest_dir: "{{ playbook_dir }}/../deploy/k8s"
+  tasks:
+    - name: Verify kubectl
+      ansible.builtin.command: kubectl version --client
+      changed_when: false
+
+    - name: Apply namespace
+      ansible.builtin.command: kubectl apply -f "{{ recomsys_manifest_dir }}/namespace.yaml"
+
+    - name: Apply PVC
+      ansible.builtin.command: kubectl apply -f "{{ recomsys_manifest_dir }}/pvc.yaml"
+
+    - name: Apply Deployment
+      ansible.builtin.command: kubectl apply -f "{{ recomsys_manifest_dir }}/deployment.yaml"
+
+    - name: Apply Service
+      ansible.builtin.command: kubectl apply -f "{{ recomsys_manifest_dir }}/service.yaml"
+
+    - name: Roll image (optional)
+      ansible.builtin.command:
+        argv:
+          - kubectl
+          - set
+          - image
+          - deployment/recomsys-api
+          - "api={{ recomsys_image }}"
+          - "-n"
+          - "{{ recomsys_namespace }}"
+      when: recomsys_image is defined and recomsys_image | length > 0
+      register: roll
+      changed_when: roll.rc == 0
+
+    - name: Wait for rollout
+      ansible.builtin.command:
+        argv:
+          - kubectl
+          - rollout
+          - status
+          - deployment/recomsys-api
+          - "-n"
+          - "{{ recomsys_namespace }}"
+          - "--timeout=600s"
+      changed_when: false
+
+    - name: Show Service
+      ansible.builtin.command: kubectl get svc recomsys-api -n "{{ recomsys_namespace }}" -o wide
+      changed_when: false
+      register: svc
+
+    - name: Print Service
+      ansible.builtin.debug:
+        var: svc.stdout_lines

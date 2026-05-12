@@ -1,0 +1,19 @@
+# Optional Ingress (enable after you install an Ingress controller on AKS).
+# apiVersion: networking.k8s.io/v1
+# kind: Ingress
+# metadata:
+#   name: recomsys-api
+#   namespace: recomsys
+# spec:
+#   ingressClassName: webapprouting.kubernetes.azure.com
+#   rules:
+#     - host: recomsys.example.com
+#       http:
+#         paths:
+#           - path: /
+#             pathType: Prefix
+#             backend:
+#               service:
+#                 name: recomsys-api
+#                 port:
+#                   number: 80

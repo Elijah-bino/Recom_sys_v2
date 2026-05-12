@@ -1,0 +1,12 @@
+# SQLite DB + matrix cache need ReadWriteOnce. Keep replicas: 1 until you use a shared DB.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: recomsys-data
+  namespace: recomsys
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 20Gi
