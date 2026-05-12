@@ -1,5 +1,22 @@
 # RecomSys v2
 
+Badges reflect **minimum versions from `requirements.txt`** and the **Docker** base image. They are labels only—nothing to click for magic.
+
+| Area | Tags |
+|------|------|
+| **Language & runtime** | [![Python](https://img.shields.io/badge/Python-3.12%2B-3776AB?logo=python&logoColor=white)](https://www.python.org/) [![Docker](https://img.shields.io/badge/Docker-24%2B-2496ED?logo=docker&logoColor=white)](https://www.docker.com/) |
+| **Web & API** | [![FastAPI](https://img.shields.io/badge/FastAPI-%3E%3D0.115-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/) [![Uvicorn](https://img.shields.io/badge/Uvicorn-%3E%3D0.30-111111)](https://www.uvicorn.org/) [![Pydantic](https://img.shields.io/badge/Pydantic-v2-E92063?logo=pydantic&logoColor=white)](https://docs.pydantic.dev/) |
+| **ML & numerics** | [![PyTorch](https://img.shields.io/badge/PyTorch-%3E%3D2.2-EE4C2C?logo=pytorch&logoColor=white)](https://pytorch.org/) [![torchvision](https://img.shields.io/badge/torchvision-%3E%3D0.17-EE4C2C?logo=pytorch&logoColor=white)](https://pytorch.org/) [![sentence-transformers](https://img.shields.io/badge/sentence--transformers-%3E%3D3.0-FF6F00?logo=huggingface&logoColor=white)](https://www.sbert.net/) [![scikit-learn](https://img.shields.io/badge/scikit--learn-%3E%3D1.5-F7931E?logo=scikitlearn&logoColor=white)](https://scikit-learn.org/) [![NumPy](https://img.shields.io/badge/NumPy-%3E%3D1.26-013243?logo=numpy&logoColor=white)](https://numpy.org/) [![pandas](https://img.shields.io/badge/pandas-%3E%3D2.2-150458?logo=pandas&logoColor=white)](https://pandas.pydata.org/) |
+| **Auth & persistence** | [![SQLite](https://img.shields.io/badge/SQLite-3-003B57?logo=sqlite&logoColor=white)](https://www.sqlite.org/) [![passlib](https://img.shields.io/badge/passlib-bcrypt%20%E2%89%A51.7.4-3776AB?logo=python&logoColor=white)](https://passlib.readthedocs.io/) [![python-jose](https://img.shields.io/badge/python--jose-cryptography%20%E2%89%A53.3-3776AB?logo=python&logoColor=white)](https://python-jose.readthedocs.io/) |
+| **Media & metadata** | [![YouTube Data API v3](https://img.shields.io/badge/YouTube_Data_API-v3-FF0000?logo=youtube&logoColor=white)](https://developers.google.com/youtube/v3) [![TMDB API](https://img.shields.io/badge/TMDB-API-01D277?logo=themoviedatabase&logoColor=white)](https://www.themoviedb.org/documentation/api) |
+| **Extra UI** | [![Streamlit](https://img.shields.io/badge/Streamlit-%3E%3D1.44-FF4B4B?logo=streamlit&logoColor=white)](https://streamlit.io/) |
+| **HTTP & tooling** | [![Requests](https://img.shields.io/badge/Requests-%3E%3D2.32-111111?logo=python&logoColor=white)](https://requests.readthedocs.io/) [![python-dotenv](https://img.shields.io/badge/python--dotenv-%3E%3D1.0-111111?logo=python&logoColor=white)](https://github.com/theskumar/python-dotenv) [![tqdm](https://img.shields.io/badge/tqdm-%3E%3D4.66-111111?logo=python&logoColor=white)](https://tqdm.github.io/) [![aiofiles](https://img.shields.io/badge/aiofiles-%3E%3D23.2-111111?logo=python&logoColor=white)](https://github.com/Tinche/aiofiles) |
+| **Deploy** | [![Kubernetes](https://img.shields.io/badge/Kubernetes-1.28%2B-326CE5?logo=kubernetes&logoColor=white)](https://kubernetes.io/) [![Azure](https://img.shields.io/badge/Microsoft_Azure-0078D4?logo=microsoftazure&logoColor=white)](https://azure.microsoft.com/) [![Ansible](https://img.shields.io/badge/Ansible-EE0000?logo=ansible&logoColor=white)](https://www.ansible.com/) |
+
+**Pinned model:** `sentence-transformers/all-MiniLM-L6-v2` (title + synopsis embeddings).
+
+---
+
 A small-but-serious movie recommender: you describe a mood (or pick a few liked titles), and it ranks the whole catalog using **synopsis embeddings** plus **genre** signals. No collaborative filtering, no giant user matrix—just text + metadata doing the heavy lifting. There is also a **vanilla JS UI** at `/ui`, optional **Streamlit** front-end, **SQLite** for accounts and shareable runs, and enough **Docker / Kubernetes / Ansible** glue that you can take the same app from your laptop to an Azure cluster without reinventing the wheel.
 
 If you only read one thing: clone it, install deps, point `CATALOG_PATH` at your CSV, run `uvicorn`, open `/ui`, and you are in business.
@@ -25,25 +42,6 @@ If you only read one thing: clone it, install deps, point `CATALOG_PATH` at your
 **Kubernetes on Azure** (pods sitting on your node pool—your layout may differ, but the idea is the same):
 
 ![Pods and nodes](pods%20and%20nodes%20in%20vm.jpg)
-
----
-
-## Tech tags (what this repo actually uses)
-
-Badges below reflect **minimum versions from `requirements.txt`** plus the **runtime** we ship in Docker. Click nothing—they are just labels so you can grep your mental model quickly.
-
-| Area | Tags |
-|------|------|
-| **Language & runtime** | [![Python](https://img.shields.io/badge/Python-3.12%2B-3776AB?logo=python&logoColor=white)](https://www.python.org/) [![Docker](https://img.shields.io/badge/Docker-24%2B-2496ED?logo=docker&logoColor=white)](https://www.docker.com/) |
-| **Web & API** | [![FastAPI](https://img.shields.io/badge/FastAPI-%3E%3D0.115-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/) [![Uvicorn](https://img.shields.io/badge/Uvicorn-%3E%3D0.30-111111?logo=uvicorn&logoColor=white)](https://www.uvicorn.org/) [![Pydantic](https://img.shields.io/badge/Pydantic-v2-E92063?logo=pydantic&logoColor=white)](https://docs.pydantic.dev/) |
-| **ML & numerics** | [![PyTorch](https://img.shields.io/badge/PyTorch-%3E%3D2.2-EE4C2C?logo=pytorch&logoColor=white)](https://pytorch.org/) [![torchvision](https://img.shields.io/badge/torchvision-%3E%3D0.17-EE4C2C?logo=pytorch&logoColor=white)](https://pytorch.org/) [![sentence--transformers](https://img.shields.io/badge/sentence--transformers-%3E%3D3.0-FF6F00?logo=huggingface&logoColor=white)](https://www.sbert.net/) [![scikit--learn](https://img.shields.io/badge/scikit--learn-%3E%3D1.5-F7931E?logo=scikitlearn&logoColor=white)](https://scikit-learn.org/) [![NumPy](https://img.shields.io/badge/NumPy-%3E%3D1.26-013243?logo=numpy&logoColor=white)](https://numpy.org/) [![pandas](https://img.shields.io/badge/pandas-%3E%3D2.2-150458?logo=pandas&logoColor=white)](https://pandas.pydata.org/) |
-| **Auth & persistence** | [![SQLite](https://img.shields.io/badge/SQLite-3-003B57?logo=sqlite&logoColor=white)](https://www.sqlite.org/) [![passlib](https://img.shields.io/badge/passlib-%5Bbcrypt%5D-%3E%3D1.7-4B8BBE?logo=python&logoColor=white)](https://passlib.readthedocs.io/) [![python--jose](https://img.shields.io/badge/python--jose-%5Bcryptography%5D-%3E%3D3.3-111111?logo=jsonwebtokens&logoColor=white)](https://python-jose.readthedocs.io/) |
-| **Media & metadata** | [![YouTube Data API v3](https://img.shields.io/badge/YouTube_Data_API-v3-FF0000?logo=youtube&logoColor=white)](https://developers.google.com/youtube/v3) [![TMDB API](https://img.shields.io/badge/TMDB-API-01D277?logo=themoviedatabase&logoColor=white)](https://www.themoviedb.org/documentation/api) |
-| **Extra UI** | [![Streamlit](https://img.shields.io/badge/Streamlit-%3E%3D1.44-FF4B4B?logo=streamlit&logoColor=white)](https://streamlit.io/) |
-| **HTTP & tooling** | [![Requests](https://img.shields.io/badge/Requests-%3E%3D2.32-111111?logo=python&logoColor=white)](https://requests.readthedocs.io/) [![python-dotenv](https://img.shields.io/badge/python--dotenv-%3E%3D1.0-111111?logo=python&logoColor=white)](https://github.com/theskumar/python-dotenv) [![tqdm](https://img.shields.io/badge/tqdm-%3E%3D4.66-111111?logo=python&logoColor=white)](https://tqdm.github.io/) [![aiofiles](https://img.shields.io/badge/aiofiles-%3E%3D23.2-111111?logo=python&logoColor=white)](https://github.com/Tinche/aiofiles) |
-| **Deploy** | [![Kubernetes](https://img.shields.io/badge/Kubernetes-1.28%2B-326CE5?logo=kubernetes&logoColor=white)](https://kubernetes.io/) [![Azure](https://img.shields.io/badge/Microsoft_Azure-0078D4?logo=microsoftazure&logoColor=white)](https://azure.microsoft.com/) [![Ansible](https://img.shields.io/badge/Ansible-EE0000?logo=ansible&logoColor=white)](https://www.ansible.com/) |
-
-**Pinned model** (not a pip badge, but it matters): `sentence-transformers/all-MiniLM-L6-v2` for title+synopsis embeddings.
 
 ---
 
